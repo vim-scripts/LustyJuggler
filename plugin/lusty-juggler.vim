@@ -11,8 +11,8 @@
 "  Description: Dynamic Buffer Switcher Vim Plugin
 "   Maintainer: Stephen Bach <sjbach@users.sourceforge.net>
 "
-" Release Date: Monday, October 23, 2007
-"      Version: 1.0
+" Release Date: Monday, October 26, 2007
+"      Version: 1.0.1
 "
 "        Usage: To launch the juggler:
 "
@@ -70,13 +70,10 @@
 "
 " TODO:
 " - save and restore mappings
-" - fix inconsistent layouts (non-full space usage)
 " - Colourize directories/slashes in buffer list.
 " - Add TAB recognition back.
 " - Add option to open buffer immediately when mapping is pressed (but not
 "   release the juggler until the confirmation press).
-
-" Switch very quickly between your 10 most recently used buffers.
 
 " Exit quickly when already loaded.
 if exists("g:loaded_lustyjuggler")
@@ -204,11 +201,12 @@ class LustyJuggler
       # Need to zero the timeout length or pressing 'g' will hang.
       @ruler = (eva("&ruler") != "0")
       @showcmd = (eva("&showcmd") != "0")
+      @showmode = (eva("&showmode") != "0")
       @timeoutlen = eva "&timeoutlen"
       set 'timeoutlen=0'
       set 'noruler'
       set 'noshowcmd'
-      # fixme showmode?
+      set 'noshowmode'
 
       # Selection keys.
       @@KEYS.keys.each do |c|
@@ -252,6 +250,7 @@ class LustyJuggler
       set "timeoutlen=#{@timeoutlen}"
       set "ruler" if @ruler
       set "showcmd" if @showcmd
+      set "showmode" if @showmode
 
       @@KEYS.keys.each do |c|
         exe "unmap <silent> #{c}"
@@ -374,27 +373,31 @@ class NameBar
       right_justify = (left_len > half_displayable_len) and \
                       (right_len < half_displayable_len)
 
+      active_str_half_len = (items[@active].length / 2) + \
+                            (items[@active].length % 2 == 0 ? 0 : 1)
+
       if right_justify
         # Right justify the bar.
         first_layout = self.method :layout_right
         second_layout = self.method :layout_left
+        first_adjustment = active_str_half_len
+        second_adjustment = -active_str_half_len
       else
-        # Left justify (more likely).
+        # Left justify (sort-of more likely).
         first_layout = self.method :layout_left
         second_layout = self.method :layout_right
+        first_adjustment = -active_str_half_len
+        second_adjustment = active_str_half_len
       end
 
-      active_str_half_len = (items[@active].length / 2) + \
-                            (items[@active].length % 2 == 0 ? 0 : 1)
-
-      allocation = half_displayable_len - active_str_half_len
-
+      # Layout the first side.
+      allocation = half_displayable_len + first_adjustment
       first_side, remainder = first_layout.call(items, allocation)
 
+      # Then layout the second side, also grabbing any unused space.
       allocation = half_displayable_len + \
-                   active_str_half_len + \
+                   second_adjustment + \
                    remainder
-
       second_side, remainder = second_layout.call(items, allocation)
 
       if right_justify
