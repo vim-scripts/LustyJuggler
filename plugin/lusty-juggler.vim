@@ -1,4 +1,4 @@
-"    Copyright: Copyright (C) 2007 Stephen Bach
+"    Copyright: Copyright (C) 2008 Stephen Bach
 "               Permission is hereby granted to use and distribute this code,
 "               with or without modifications, provided that this copyright
 "               notice is copied with it. Like anything else that's free,
@@ -11,8 +11,8 @@
 "  Description: Dynamic Buffer Switcher Vim Plugin
 "   Maintainer: Stephen Bach <sjbach@users.sourceforge.net>
 "
-" Release Date: Monday, October 26, 2007
-"      Version: 1.0.1
+" Release Date: Monday, August 25, 2008
+"      Version: 1.0.2
 "
 "        Usage: To launch the juggler:
 "
@@ -48,6 +48,19 @@
 "               To cancel the juggler, press any of "q", "<ESC>", "<C-c",
 "               "<BS>", "<Del>", or "<C-h>".
 "
+"
+"        Bonus: This plugin also includes the following command, which will
+"               immediately switch to your previously used buffer:
+"
+"                 ":JugglePrevious"
+"               
+"               This is similar to the :b# command, but accounts for the
+"               common situation where your previously used buffer (#) has
+"               been killed and is thus inaccessible.  In that case, it will
+"               instead switch to the buffer used previous to the killed
+"               buffer (and on down the line).
+"               
+"
 " Install Details:
 " Copy this file into your $HOME/.vim/plugin directory so that it will be
 " sourced on startup automatically.
@@ -70,10 +83,11 @@
 "
 " TODO:
 " - save and restore mappings
-" - Colourize directories/slashes in buffer list.
 " - Add TAB recognition back.
 " - Add option to open buffer immediately when mapping is pressed (but not
 "   release the juggler until the confirmation press).
+" - Have the delimiter character settable.
+"   - have colours settable?
 
 " Exit quickly when already loaded.
 if exists("g:loaded_lustyjuggler")
@@ -126,6 +140,7 @@ let g:loaded_lustyjuggler = "yep"
 " Commands.
 if !exists(":LustyJuggler")
   command LustyJuggler :call <SID>LustyJugglerStart()
+  command JugglePrevious :call <SID>JugglePreviousRun()
 endif
 
 " Default mappings.
@@ -143,6 +158,10 @@ endfunction
 
 function! LustyJugglerCancel()
   ruby $lusty_juggler.cleanup
+endfunction
+
+function! s:JugglePreviousRun()
+  ruby juggle_previous()
 endfunction
 
 " Setup the autocommands that handle buffer MRU ordering.
@@ -270,8 +289,11 @@ class LustyJuggler
     end
 
   private
-    def print_buffer_list(active=nil)
-      @name_bar.active = active
+    def print_buffer_list(highlighted_entry=0)
+      # If the user pressed a key higher than the number of open buffers,
+      # highlight the highest (see also BufferStack.num_at_pos()).
+      @name_bar.active = [highlighted_entry, $buffer_stack.length].min
+
       @name_bar.print
     end
 
@@ -281,6 +303,7 @@ class LustyJuggler
     end
 end
 
+
 # An item (delimiter/separator or buffer name) on the NameBar.
 class BarItem
   def initialize(str, color)
@@ -288,10 +311,12 @@ class BarItem
     @color = color
   end
 
-  attr_reader :str, :color
-
   def length
     @str.length
+  end
+
+  def pretty_print_input
+    [@color, @str]
   end
 
   def [](*rest)
@@ -307,6 +332,99 @@ class BarItem
   end
 end
 
+class Buffer < BarItem
+  def initialize(str, active)
+    @str = str
+    @active = active
+    destructure()
+  end
+
+  def [](*rest)
+    return Buffer.new(@str[*rest], @active)
+  end
+
+  def pretty_print_input
+    @array
+  end
+
+  private
+    @@BUFFER_COLOR = "PreProc"
+    #@@BUFFER_COLOR = "None"
+    @@DIR_COLOR = "Directory"
+    @@SLASH_COLOR = "Function"
+    @@ACTIVE_COLOR = "Question"
+
+    # Breakdown the string to colourize each part.
+    def destructure
+      if @active
+        buf_color = @@ACTIVE_COLOR
+        dir_color = @@ACTIVE_COLOR
+        slash_color = @@ACTIVE_COLOR
+      else
+        buf_color = @@BUFFER_COLOR
+        dir_color = @@DIR_COLOR
+        slash_color = @@SLASH_COLOR
+      end
+
+      pieces = @str.split(File::SEPARATOR, -1) 
+
+      @array = Array.new
+      @array << dir_color
+      @array << pieces.shift
+      pieces.each { |piece|
+        @array << slash_color
+        @array << File::SEPARATOR
+        @array << dir_color
+        @array << piece
+      }
+
+      # Last piece is the actual name.
+      @array[-2] = buf_color
+    end
+end
+
+class Separator < BarItem
+  public
+    def initialize
+      super(@@TEXT, @@COLOR)
+    end
+
+  private
+    @@TEXT = "|"
+    #@@COLOR = "NonText"
+    @@COLOR = "None"
+end
+
+class LeftContinuer < BarItem
+  public
+    def initialize
+      super(@@TEXT, @@COLOR)
+    end
+
+    def LeftContinuer.length
+      @@TEXT.length
+    end
+
+  private
+    @@TEXT = "<"
+    @@COLOR = "NonText"
+end
+
+class RightContinuer < BarItem
+  public
+    def initialize
+      super(@@TEXT, @@COLOR)
+    end
+
+    def RightContinuer.length
+      @@TEXT.length
+    end
+
+  private
+    @@TEXT = ">"
+    @@COLOR = "NonText"
+end
+
 
 # A one-line display of the open buffers, appearing in the command display.
 class NameBar
@@ -316,7 +434,8 @@ class NameBar
     end
 
     def active=(i)
-      @active = (i ? i - 1 : nil)
+      # Correct for zero-based array.
+      @active = (i > 0) ? i - 1 : nil
     end
 
     def print
@@ -326,35 +445,17 @@ class NameBar
     end
 
   private
-    @@BUFFER_COLOR = "PreProc"
-    @@ACTIVE_COLOR = "Question"
-    @@DELIMITER_COLOR = "None"
-
-    @@SEPARATOR = BarItem.new("|", @@DELIMITER_COLOR)
-    @@LEFT_CONT = BarItem.new("<", @@DELIMITER_COLOR)
-    @@RIGHT_CONT = BarItem.new(">", @@DELIMITER_COLOR)
-
     def create_items
       names = $buffer_stack.names
 
-      # If the user pressed a key higher than the number of open buffers,
-      # highlight the highest (see also BufferStack.num_at_pos()).
-      if @active
-        @active = [@active, (names.length - 1)].min
-      end
-
       items = names.inject(Array.new) { |array, name|
-        color = (@active and name == names[@active]) ? @@ACTIVE_COLOR \
-                                                     : @@BUFFER_COLOR
-        array << BarItem.new(name, color)
-        array << @@SEPARATOR
+        array << Buffer.new(name, (@active and name == names[@active]))
+        array << Separator.new
       }
       items.pop   # Remove last separator.
 
       # Account for the separators.
-      if @active
-        @active = [@active * 2, (items.length - 1)].min
-      end
+      @active and @active = [@active * 2, (items.length - 1)].min
 
       return items
     end
@@ -418,9 +519,9 @@ class NameBar
           trimmed << m
           space -= m.length
         elsif space > 0
-          trimmed << m[m.length - (space - @@LEFT_CONT.length), \
-                       space - @@LEFT_CONT.length]
-          trimmed << @@LEFT_CONT
+          trimmed << m[m.length - (space - LeftContinuer.length), \
+                       space - LeftContinuer.length]
+          trimmed << LeftContinuer.new
           space = 0
         else
           break
@@ -442,8 +543,8 @@ class NameBar
           trimmed << m
           space -= m.length
         elsif space > 0
-          trimmed << m[0, space - @@RIGHT_CONT.length]
-          trimmed << @@RIGHT_CONT
+          trimmed << m[0, space - RightContinuer.length]
+          trimmed << RightContinuer.new
           space = 0
         else
           break
@@ -455,9 +556,8 @@ class NameBar
     end
 
     def NameBar.do_pretty_print(items)
-      args = items.inject(Array.new) { |array, e|
-        array << e.color
-        array << e.str
+      args = items.inject(Array.new) { |array, item|
+        array = array + item.pretty_print_input
       }
 
       pretty_msg *args
@@ -514,6 +614,14 @@ class BufferStack
     end
 end
 
+
+# Switch to the previous buffer (the one you were using before the current
+# one).  This is basically a smarter replacement for :b#, accounting for
+# the situation where your previous buffer no longer exists.
+def juggle_previous
+  buf = $buffer_stack.num_at_pos(2)
+  exe "b #{buf}"
+end
 
 # Simple mappings to decrease typing.
 def exe(s)
