@@ -13,10 +13,10 @@
 " Contributors: Juan Frias, Bartosz Leper, Marco Barberis, Vincent Driessen,
 "               Martin Wache, Johannes Holzfuß, Adam Rutkowski, Carlo Teubner,
 "               lilydjwg, Leonid Shevtsov, Giuseppe Rota, Göran Gustafsson,
-"               Chris Lasher
+"               Chris Lasher, Guy Haskin Fernald
 "
-" Release Date: February 24, 2012
-"      Version: 1.5
+" Release Date: February 29, 2012
+"      Version: 1.5.1
 "
 "        Usage:
 "                 <Leader>lj  - Opens the buffer juggler.
@@ -569,7 +569,8 @@ class LustyJuggler
         "7" => 7,
         "8" => 8,
         "9" => 9,
-        "0" => 10
+        "0" => 10,
+        "10" => 10
       }
       @BUFFER_KEYS = @ALPHA_BUFFER_KEYS.merge(@NUMERIC_BUFFER_KEYS)
       @KEYPRESS_KEYS = {
@@ -628,8 +629,8 @@ class LustyJuggler
       @key_mappings_map = Hash.new { |hash, k| hash[k] = [] }
 
       # Selection keys.
-      @KEYPRESS_MAPPINGS.keys.each do |c|
-        map_key(c, ":call <SID>LustyJugglerKeyPressed('#{c}')<CR>")
+      @KEYPRESS_MAPPINGS.each_pair do |c, v|
+        map_key(c, ":call <SID>LustyJugglerKeyPressed('#{v}')<CR>")
       end
 
       # Cancel keys.
