@@ -59,10 +59,13 @@
 "               To cancel the juggler, press any of "q", "<ESC>", "<C-c",
 "               "<BS>", "<Del>", or "<C-h>".
 "
-"               LustyJuggler also supports the Dvorak keyboard layout. To
-"               enable this feature, place the following in your .vimrc:
+"               LustyJuggler also supports the Dvorak and Azerty keyboard
+"               layouts. To enable this feature, place the following in your
+"               .vimrc:
 "
 "                 let g:LustyJugglerKeyboardLayout = "dvorak"
+"               or
+"                 let g:LustyJugglerKeyboardLayout = "azerty"
 "
 "               With the layout set to "dvorak", the buffer mapping is as
 "               follows:
@@ -713,12 +716,12 @@ class LustyJuggler
       buf = $lj_buffer_stack.num_at_pos(i)
       VIM::command "b #{buf}"
     end
-    
+
     def vsplit(i)
       buf = $lj_buffer_stack.num_at_pos(i)
       VIM::command "vert sb #{buf}"
     end
-    
+
     def hsplit(i)
       buf = $lj_buffer_stack.num_at_pos(i)
       VIM::command "sb #{buf}"
@@ -760,6 +763,32 @@ class LustyJuggler
           VIM::command restore_cmd
         end
       end
+    end
+end
+
+class LustyJugglerAzerty < LustyJuggler
+  public
+    def initialize
+      super
+      alpha_buffer_keys = [
+        "q",
+        "s",
+        "d",
+        "f",
+        "g",
+        "h",
+        "j",
+        "k",
+        "l",
+        "m",
+      ]
+      @name_bar = NameBar.new(alpha_buffer_keys)
+      @ALPHA_BUFFER_KEYS = Hash.new
+      alpha_buffer_keys.each_with_index {|x, i| @ALPHA_BUFFER_KEYS[x] = i + 1}
+      @BUFFER_KEYS = @ALPHA_BUFFER_KEYS.merge(@NUMERIC_BUFFER_KEYS)
+      @KEYPRESS_MAPPINGS = @BUFFER_KEYS.merge(@KEYPRESS_KEYS)
+      @CANCEL_MAPPINGS.delete("q")
+      @CANCEL_MAPPINGS.push("c")
     end
 end
 
@@ -1198,6 +1227,8 @@ end
 
 if VIM::exists?('g:LustyJugglerKeyboardLayout') and VIM::evaluate_bool('g:LustyJugglerKeyboardLayout == "dvorak"')
   $lusty_juggler = LustyJ::LustyJugglerDvorak.new
+elsif VIM::exists?('g:LustyJugglerKeyboardLayout') and VIM::evaluate_bool('g:LustyJugglerKeyboardLayout == "azerty"')
+  $lusty_juggler = LustyJ::LustyJugglerAzerty.new
 else
   $lusty_juggler = LustyJ::LustyJuggler.new
 end
