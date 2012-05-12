@@ -546,15 +546,15 @@ class LustyJuggler
       @last_pressed = nil
       alpha_buffer_keys = [
         "a",
-        "u",
-        "i",
-        "e",
-        ",",
-        "t",
         "s",
-        "r",
-        "n",
-        "m",
+        "d",
+        "f",
+        "g",
+        "h",
+        "j",
+        "k",
+        "l",
+        ";",
       ]
       @name_bar = NameBar.new(alpha_buffer_keys)
       @ALPHA_BUFFER_KEYS = Hash.new
@@ -778,6 +778,32 @@ class LustyJugglerDvorak < LustyJuggler
         "t",
         "n",
         "s",
+      ]
+      @name_bar = NameBar.new(alpha_buffer_keys)
+      @ALPHA_BUFFER_KEYS = Hash.new
+      alpha_buffer_keys.each_with_index {|x, i| @ALPHA_BUFFER_KEYS[x] = i + 1}
+      @BUFFER_KEYS = @ALPHA_BUFFER_KEYS.merge(@NUMERIC_BUFFER_KEYS)
+      @KEYPRESS_MAPPINGS = @BUFFER_KEYS.merge(@KEYPRESS_KEYS)
+      @CANCEL_MAPPINGS.delete("i")
+      @CANCEL_MAPPINGS.push("c")
+    end
+end
+
+class LustyJugglerBepo < LustyJuggler
+  public
+    def initialize
+      super
+      alpha_buffer_keys = [
+        "a",
+        "u",
+        "i",
+        "e",
+        ",",
+        "t",
+        "s",
+        "r",
+        "n",
+        "m",
       ]
       @name_bar = NameBar.new(alpha_buffer_keys)
       @ALPHA_BUFFER_KEYS = Hash.new
@@ -1194,10 +1220,10 @@ end
 
 end
 
-
-
 if VIM::exists?('g:LustyJugglerKeyboardLayout') and VIM::evaluate_bool('g:LustyJugglerKeyboardLayout == "dvorak"')
-  $lusty_juggler = LustyJ::LustyJugglerDvorak.new
+	$lusty_juggler = LustyJ::LustyJugglerDvorak.new
+elsif VIM::exists?('g:LustyJugglerKeyboardLayout') and VIM::evaluate_bool('g:LustyJugglerKeyboardLayout == "bépo"')
+	$lusty_juggler = LustyJ::LustyJugglerBepo.new
 else
   $lusty_juggler = LustyJ::LustyJuggler.new
 end
