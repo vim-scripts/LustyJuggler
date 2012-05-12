@@ -546,15 +546,15 @@ class LustyJuggler
       @last_pressed = nil
       alpha_buffer_keys = [
         "a",
+        "u",
+        "i",
+        "e",
+        ",",
+        "t",
         "s",
-        "d",
-        "f",
-        "g",
-        "h",
-        "j",
-        "k",
-        "l",
-        ";",
+        "r",
+        "n",
+        "m",
       ]
       @name_bar = NameBar.new(alpha_buffer_keys)
       @ALPHA_BUFFER_KEYS = Hash.new
