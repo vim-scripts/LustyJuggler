@@ -374,15 +374,15 @@ module VIM
     return if rest.length == 0
     return if rest.length % 2 != 0
 
-    command "redraw"  # see :help echo-redraw
+    VIM::command "redraw"  # see :help echo-redraw
     i = 0
     while i < rest.length do
-      command "echohl #{rest[i]}"
-      command "echon '#{rest[i+1]}'"
+      VIM::command "echohl #{rest[i]}"
+      VIM::command "echon '#{rest[i+1]}'"
       i += 2
     end
 
-    command 'echohl None'
+    VIM::command 'echohl None'
   end
 end
 
